@@ -5,15 +5,12 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from io import BytesIO
-
 from app.api import schemas
 from app.auth.deps import get_current_user
 from app.cache.redis import cache
 from app.core.config import settings
 from app.db.models import Image, Transformation, User
 from app.db.session import get_db
-# Switch to R2 storage for production
-# from app.storage.local_storage import storage
 from app.storage.r2 import storage
 from app.utils.image_processor import image_processor
 

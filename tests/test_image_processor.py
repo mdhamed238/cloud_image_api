@@ -107,9 +107,9 @@ def test_apply_filter(sample_image):
 def test_process_image(sample_image):
     """Test applying multiple operations."""
     operations = [
-        {"type": "resize", "width": 50},
-        {"type": "filter", "filter": "grayscale"},
-        {"type": "rotate", "angle": 90}
+        {"type": "resize", "params": {"width": 50}},
+        {"type": "filter", "params": {"filter_type": "grayscale"}},
+        {"type": "rotate", "params": {"angle": 90}}
     ]
     
     processed = ImageProcessor.process_image(sample_image, operations)
