@@ -1,14 +1,14 @@
 # Deployment Guide
 
-This guide provides instructions for deploying the Cloud Image Processing API to various platforms.
+This guide provides instructions for deploying the Cloud Image Processing API to DigitalOcean App Platform using Docker.
 
 ## Prerequisites
 
 Before deploying, make sure you have:
 
 1. A Cloudflare account with R2 storage set up
-2. A Redis instance (Redis Cloud free tier or self-hosted)
-3. An account on your chosen deployment platform (Railway, Render, or Fly.io)
+2. A DigitalOcean account
+3. The DigitalOcean CLI (`doctl`) installed and authenticated
 
 ## Environment Variables
 
@@ -33,7 +33,7 @@ R2_BUCKET_NAME="your-bucket-name"
 R2_PUBLIC_URL="https://your-public-bucket-url.com"
 
 # Redis Settings
-REDIS_URL="redis://username:password@host:port"
+REDIS_URL="redis://localhost:6379/0"
 REDIS_CACHE_EXPIRY=86400
 
 # Image Processing Settings
@@ -41,86 +41,107 @@ MAX_IMAGE_SIZE=10485760
 ALLOWED_EXTENSIONS=["jpg", "jpeg", "png", "gif", "webp"]
 ```
 
-## Deployment Options
+## Deployment to DigitalOcean App Platform
 
-### Railway
+### 1. Prepare Your Application
 
-1. **Create a new project**:
-   - Go to [Railway](https://railway.app/) and create a new project
-   - Choose "Deploy from GitHub repo"
-   - Connect your GitHub repository
+Ensure your application has the following files:
 
-2. **Configure environment variables**:
-   - In your project settings, add all required environment variables
+- `Dockerfile`: Defines how to build your application container
+- `.dockerignore`: Specifies files to exclude from the Docker build
+- `.do/app-docker.yaml`: DigitalOcean App Platform specification
+- `init_db.sql`: SQL script to initialize the database schema
 
-3. **Add a PostgreSQL database**:
-   - Click "New" and select "Database" → "PostgreSQL"
-   - Railway will automatically add the database connection variables
+### 2. Understanding the Deployment Architecture
 
-4. **Deploy**:
-   - Railway will automatically build and deploy your application
-   - The deployment URL will be available in the "Settings" tab
+The deployment architecture consists of:
 
-### Render
+- **FastAPI Application**: Runs your API endpoints
+- **Redis**: Runs in the same container as FastAPI for caching
+- **PostgreSQL**: Managed database provided by DigitalOcean
 
-1. **Create a new Web Service**:
-   - Go to [Render](https://render.com/) and create a new Web Service
-   - Connect your GitHub repository
+Both FastAPI and Redis run in the same container, managed by Supervisor.
 
-2. **Configure the service**:
-   - Name: `cloud-image-api`
-   - Environment: `Python`
-   - Build Command: `pip install -r requirements.txt && alembic upgrade head`
-   - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+### 3. Deploy Using the DigitalOcean CLI
 
-3. **Add environment variables**:
-   - In the "Environment" section, add all required environment variables
+```bash
+# Create a new app
+doctl apps create --spec .do/app-docker.yaml
 
-4. **Add a PostgreSQL database**:
-   - Go to "New" and select "PostgreSQL"
-   - Connect your database by setting the `DATABASE_URL` environment variable
+# Or update an existing app
+doctl apps update YOUR_APP_ID --spec .do/app-docker.yaml
+```
 
-5. **Deploy**:
-   - Click "Create Web Service"
-   - Render will build and deploy your application
+### 4. Deploy Using the DigitalOcean Web Interface
 
-### Fly.io
+1. Go to the [DigitalOcean App Platform](https://cloud.digitalocean.com/apps)
+2. Click "Create App"
+3. Choose "GitHub" as the source
+4. Select your repository
+5. Choose the branch to deploy from
+6. Configure your app settings:
+   - Select "Dockerfile" as the build method
+   - Configure environment variables
+   - Add a managed PostgreSQL database
+7. Click "Create Resources"
 
-1. **Install Flyctl**:
-   ```bash
-   curl -L https://fly.io/install.sh | sh
-   ```
+## Common Issues and Solutions
 
-2. **Authenticate**:
-   ```bash
-   flyctl auth login
-   ```
+### PostgreSQL Permission Issues
 
-3. **Create a fly.toml file**:
-   ```bash
-   flyctl launch
-   ```
+When deploying to DigitalOcean's managed PostgreSQL, you might encounter permission errors:
 
-4. **Configure the application**:
-   - Edit the generated `fly.toml` file to match your requirements
-   - Add environment variables using `flyctl secrets set KEY=VALUE`
+```
+psycopg2.errors.InsufficientPrivilege: permission denied for schema public
+```
 
-5. **Add a PostgreSQL database**:
-   ```bash
-   flyctl postgres create
-   ```
+**Solution:**
 
-6. **Deploy**:
-   ```bash
-   flyctl deploy
-   ```
+1. **Remove automatic table creation in FastAPI startup:**
+   - Comment out or remove `Base.metadata.create_all(bind=engine)` in your app's startup event
+
+2. **Use SQL initialization script:**
+   - Create an `init_db.sql` file with your schema definition
+   - Use the PostgreSQL client in your container startup script to execute this file
+
+3. **Wait for PostgreSQL to be ready:**
+   - Use `pg_isready` to check if PostgreSQL is available before attempting to connect
+   - Add appropriate retry logic in your container startup script
+
+### Database URL Format
+
+DigitalOcean provides the database URL in the format:
+
+```
+${db.DATABASE_URL}
+```
+
+This is automatically expanded to the actual connection string at runtime.
+
+## Monitoring Your Deployment
+
+Monitor your deployment using the DigitalOcean CLI:
+
+```bash
+# List your apps
+doctl apps list
+
+# Get app details
+doctl apps get YOUR_APP_ID
+
+# List deployments
+doctl apps list-deployments YOUR_APP_ID
+
+# View logs
+doctl apps logs YOUR_APP_ID
+```
 
 ## CI/CD with GitHub Actions
 
 Create a `.github/workflows/deploy.yml` file in your repository:
 
 ```yaml
-name: Deploy
+name: Deploy to DigitalOcean
 
 on:
   push:
@@ -134,7 +155,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
+          python-version: '3.11'
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -148,53 +169,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      
-      # For Railway
-      - name: Deploy to Railway
-        uses: bervProject/railway-deploy@main
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
         with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          
-      # For Render (using their API)
-      # - name: Deploy to Render
-      #   run: |
-      #     curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-      
-      # For Fly.io
-      # - name: Deploy to Fly.io
-      #   uses: superfly/flyctl-actions@master
-      #   with:
-      #     args: "deploy"
-      #   env:
-      #     FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      - name: Deploy to DigitalOcean App Platform
+        run: doctl apps update ${{ secrets.DIGITALOCEAN_APP_ID }} --spec .do/app-docker.yaml
 ```
 
-## Monitoring and Logging
-
-For production deployments, consider setting up:
-
-1. **Application Monitoring**:
-   - Sentry for error tracking
-   - Prometheus for metrics
-   - Grafana for visualization
-
-2. **Logging**:
-   - Configure logging to a service like Datadog or Logz.io
-   - Or use the built-in logging of your deployment platform
-
-## Scaling Considerations
-
-1. **Database Scaling**:
-   - Consider connection pooling for PostgreSQL
-   - Use database indexes for frequently queried fields
-
-2. **Storage Scaling**:
-   - Cloudflare R2 scales automatically
-
-3. **Redis Caching**:
-   - Implement proper cache invalidation strategies
-   - Consider Redis cluster for high availability
-
-4. **Application Scaling**:
-   - All recommended platforms support auto-scaling
-   - Configure scaling based on CPU/memory usage
+Remember to add your DigitalOcean access token and app ID as secrets in your GitHub repository.

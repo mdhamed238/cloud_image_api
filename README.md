@@ -17,7 +17,7 @@ A backend system for image processing services similar to Cloudinary. This servi
 - **Caching**: Redis
 - **Image Processing**: Pillow
 - **Authentication**: JWT
-- **Deployment**: Railway, Render, or Fly.io
+- **Deployment**: DigitalOcean App Platform with Docker
 
 ## API Endpoints
 
@@ -258,9 +258,10 @@ Transformations are applied in the order they are specified.
 ## Setup and Installation
 
 ### Prerequisites
-- Python 3.9+
+- Python 3.11+
 - Redis
 - Cloudflare R2 account
+- Docker and Docker Compose (for local containerized development)
 
 ### Local Development
 
@@ -279,8 +280,8 @@ pip install -r requirements.txt
 
 3. Set up environment variables
 ```bash
-cp .env.example .env
-# Edit .env with your configuration
+cp .env.example .env.local
+# Edit .env.local with your configuration
 ```
 
 4. Run database migrations
@@ -293,7 +294,26 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-6. Access the API documentation at http://localhost:8000/docs
+### Docker Development
+
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/cloud-image-api.git
+cd cloud-image-api
+```
+
+2. Set up environment variables
+```bash
+cp .env.example .env.local
+# Edit .env.local with your configuration
+```
+
+3. Build and start the Docker containers
+```bash
+docker-compose up -d
+```
+
+4. Access the API documentation at http://localhost:8000/docs
 
 ## Testing
 
@@ -304,8 +324,4 @@ pytest
 
 ## Deployment
 
-Detailed deployment instructions for Railway, Render, and Fly.io are available in the [DEPLOYMENT.md](DEPLOYMENT.md) file.
-
-## License
-
-MIT
+Detailed deployment instructions for DigitalOcean App Platform are available in the [DEPLOYMENT.md](DEPLOYMENT.md) file.
