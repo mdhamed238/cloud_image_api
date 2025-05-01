@@ -6,7 +6,8 @@ services:
       branch: main
       deploy_on_push: true
       repo: mdhamed238/cloud_image_api
-    build_command: pip install -r requirements.txt && alembic upgrade head
+    build_command: pip install -r requirements.txt
+    pre_deploy_command: apt-get update && apt-get install -y postgresql-client && PGPASSWORD=${db.PASSWORD} psql -h ${db.HOSTNAME} -p ${db.PORT} -U ${db.USERNAME} -d ${db.DATABASE} -f init_db.sql || echo "Database initialization failed, but continuing..."
     run_command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envs:
       - key: APP_NAME
@@ -17,7 +18,7 @@ services:
         value: "false"
       - key: SECRET_KEY
         scope: RUN_TIME
-        type: SECRET
+        value: "84308bbbcc255216589ba72f77ee00c0e4e82e9c4c126bfaf43c06f7cd7bb99b"
       - key: ALGORITHM
         value: "HS256"
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
@@ -27,22 +28,22 @@ services:
         value: ${db.DATABASE_URL}
       - key: R2_ENDPOINT_URL
         scope: RUN_TIME
-        type: SECRET
+        value: "https://ef6bce86ec17068a565eb4b1bfdfb9bc.r2.cloudflarestorage.com"
       - key: R2_ACCESS_KEY_ID
         scope: RUN_TIME
-        type: SECRET
+        value: "4ec0debdea880843c97041a6dc31a8f4"
       - key: R2_SECRET_ACCESS_KEY
         scope: RUN_TIME
-        type: SECRET
+        value: "95d5e73ea5c16dffa96378c6125d04eddae746e150adf7b8101c44a42c9461cf"
       - key: R2_BUCKET_NAME
         scope: RUN_TIME
-        type: SECRET
+        value: "zen-image-api"
       - key: R2_PUBLIC_URL
         scope: RUN_TIME
-        type: SECRET
+        value: "https://pub-33c7c9cffeb94011ad40e5ff1438675b.r2.dev"
       - key: REDIS_URL
         scope: RUN_TIME
-        type: SECRET
+        value: "redis://dummy-redis-url:6379"
       - key: REDIS_CACHE_EXPIRY
         value: "86400"
       - key: MAX_IMAGE_SIZE
