@@ -6,8 +6,19 @@ services:
       branch: main
       deploy_on_push: true
       repo: mdhamed238/cloud_image_api
-    build_command: pip install -r requirements.txt
-    pre_deploy_command: apt-get update && apt-get install -y postgresql-client && PGPASSWORD=${db.PASSWORD} psql -h ${db.HOSTNAME} -p ${db.PORT} -U ${db.USERNAME} -d ${db.DATABASE} -f init_db.sql || echo "Database initialization failed, but continuing..."
+    # Combine database initialization with build command
+    build_command: |
+      pip install -r requirements.txt
+      apt-get update && apt-get install -y postgresql-client
+      # Wait for database to be ready and then initialize it
+      echo "Waiting for PostgreSQL to be ready..."
+      for i in {1..30}; do
+        PGPASSWORD=${db.PASSWORD} pg_isready -h ${db.HOSTNAME} -p ${db.PORT} -U ${db.USERNAME} -d ${db.DATABASE} && break
+        echo "Waiting for PostgreSQL... attempt $i/30"
+        sleep 2
+      done
+      echo "Initializing database schema..."
+      PGPASSWORD=${db.PASSWORD} psql -h ${db.HOSTNAME} -p ${db.PORT} -U ${db.USERNAME} -d ${db.DATABASE} -f init_db.sql || echo "Database initialization failed, but continuing..."
     run_command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envs:
       - key: APP_NAME
@@ -41,9 +52,15 @@ services:
       - key: R2_PUBLIC_URL
         scope: RUN_TIME
         value: "https://pub-33c7c9cffeb94011ad40e5ff1438675b.r2.dev"
+      - key: REDIS_HOST
+        scope: RUN_TIME
+        value: ${redis.HOSTNAME}
+      - key: REDIS_PORT
+        scope: RUN_TIME
+        value: ${redis.PORT}
       - key: REDIS_URL
         scope: RUN_TIME
-        value: "redis://dummy-redis-url:6379"
+        value: "redis://${redis.HOSTNAME}:${redis.PORT}/0"
       - key: REDIS_CACHE_EXPIRY
         value: "86400"
       - key: MAX_IMAGE_SIZE
@@ -62,3 +79,11 @@ databases:
     num_nodes: 1
     size: db-s-dev-database
     version: "15"
+
+# Add Redis as a separate service
+redis:
+  - name: redis
+    engine: REDIS
+    version: "7"
+    production: false
+    eviction_policy: volatile-lru
