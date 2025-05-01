@@ -21,6 +21,14 @@ COPY . .
 # Create supervisor configuration directory
 RUN mkdir -p /etc/supervisor/conf.d
 
+# Create startup script to run migrations before starting services
+RUN echo '#!/bin/bash\n\
+echo "Running database migrations..."\n\
+python -m alembic upgrade head\n\
+echo "Starting services..."\n\
+exec supervisord -c /etc/supervisor/conf.d/supervisord.conf\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
 # Create supervisor configuration file
 RUN echo "[supervisord]\n\
 nodaemon=true\n\
@@ -44,11 +52,8 @@ stdout_logfile_maxbytes=0\n\
 stderr_logfile=/dev/stderr\n\
 stderr_logfile_maxbytes=0" > /etc/supervisor/conf.d/supervisord.conf
 
-# Run database migrations
-RUN python -m alembic upgrade head
-
 # Expose port
 EXPOSE 8000
 
-# Command to run supervisor which will start both Redis and the API
-CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Command to run the startup script which will run migrations and then start supervisor
+CMD ["/app/start.sh"]

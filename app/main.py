@@ -33,10 +33,12 @@ local_storage_path = os.path.join(os.getcwd(), "local_storage")
 if os.path.exists(local_storage_path):
     app.mount("/local_storage", StaticFiles(directory=local_storage_path), name="local_storage")
 
-# Create database tables on startup if they don't exist
+# Startup event
 @app.on_event("startup")
 async def startup():
-    Base.metadata.create_all(bind=engine)
+    # Removed automatic table creation to avoid permission errors on managed databases
+    # Use Alembic migrations instead to manage database schema
+    pass
 
 @app.get("/", tags=["root"])
 async def root():
@@ -47,5 +49,5 @@ async def health_check():
     return {"status": "healthy"}
 
 if __name__ == "__main__":
-    import uvicornf
+    import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
