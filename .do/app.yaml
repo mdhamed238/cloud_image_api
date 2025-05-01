@@ -54,13 +54,13 @@ services:
         value: "https://pub-33c7c9cffeb94011ad40e5ff1438675b.r2.dev"
       - key: REDIS_HOST
         scope: RUN_TIME
-        value: ${redis.HOSTNAME}
+        value: ${redis-db.HOSTNAME}
       - key: REDIS_PORT
         scope: RUN_TIME
-        value: ${redis.PORT}
+        value: ${redis-db.PORT}
       - key: REDIS_URL
         scope: RUN_TIME
-        value: "redis://${redis.HOSTNAME}:${redis.PORT}/0"
+        value: "redis://${redis-db.HOSTNAME}:${redis-db.PORT}/0"
       - key: REDIS_CACHE_EXPIRY
         value: "86400"
       - key: MAX_IMAGE_SIZE
@@ -79,11 +79,8 @@ databases:
     num_nodes: 1
     size: db-s-dev-database
     version: "15"
-
-# Add Redis as a separate service
-redis:
-  - name: redis
-    engine: REDIS
+  - engine: REDIS
+    name: redis-db
     version: "7"
     production: false
     eviction_policy: volatile-lru
