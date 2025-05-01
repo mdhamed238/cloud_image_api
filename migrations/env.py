@@ -5,8 +5,8 @@ import sys
 # Add the parent directory to the path so we can import the app module
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-# Import test configuration to set environment variables
-import test_config
+# Remove test_config import as it's setting up SQLite for testing
+# import test_config
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
